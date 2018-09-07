@@ -5313,7 +5313,6 @@ remote_target::remote_query_supported ()
       putpkt (q.c_str ());
 
       getpkt (&rs->buf, &rs->buf_size, 0);
-      printf("reply from qemu = %s", rs->buf);
 
       /* If an error occured, warn, but do not return - just reset the
 	 buffer to empty and go on to disable features.  */
@@ -5355,7 +5354,6 @@ remote_target::remote_query_supported ()
 	    }
 	}
 
-        printf("try to process feature %s\n",p);
       name_end = strchr (p, '=');
       if (name_end)
 	{
@@ -5393,7 +5391,6 @@ remote_target::remote_query_supported ()
 	if (strcmp (remote_protocol_features[i].name, p) == 0)
 	  {
 	    const struct protocol_feature *feature;
-        printf("activate feature name = %s\n",feature->name);
 
 	    seen[i] = 1;
 	    feature = &remote_protocol_features[i];
@@ -6176,7 +6173,6 @@ remote_target::remote_resume_with_hc (ptid_t ptid, int step,
 	error (_("Remote reverse-continue not supported."));
       if (packet_support (PACKET_bj) == PACKET_ENABLE)
       {
-        printf("packet bj enabled \n");
         if (step)
         {
           inf_thread = inferior_thread();
@@ -6184,13 +6180,10 @@ remote_target::remote_resume_with_hc (ptid_t ptid, int step,
           inf_thread->thread_fsm->ops->get_step_count(inf_thread->thread_fsm);
           if (bj_step_count > 0)
           {
-            printf("step_count  was read\n");
             snprintf(buf, 10, "%s,%" PRIu64, "bj", bj_step_count);
-            printf("buf = %s\n",buf);
           }
           else
           {
-            printf("step_count doesn't read\n");
             strcpy (buf,"bs");
           }
           inf_thread->thread_fsm->ops->set_step_count(inf_thread->thread_fsm, 0);
@@ -6215,7 +6208,6 @@ remote_target::remote_resume_with_hc (ptid_t ptid, int step,
   else
     strcpy (buf, step ? "s" : "c");
 
-    printf("buffer = %s\n",buf);
   putpkt (buf);
 }
 
