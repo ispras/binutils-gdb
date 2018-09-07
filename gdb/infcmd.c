@@ -67,6 +67,10 @@ static void until_next_command (int);
 
 static void step_1 (int, int, const char *);
 
+static void roll_command (const char*, int);
+
+static void roll_1 (int, int, uint64_t, int);
+
 #define ERROR_NO_INFERIOR \
    if (!target_has_execution) error (_("The program is not being run."));
 
@@ -970,6 +974,8 @@ struct step_command_fsm
 
   /* If true, this is a stepi/nexti, otherwise a step/step.  */
   int single_inst;
+
+  uint64_t roll_command_step_count;
 };
 
 static void step_command_fsm_clean_up (struct thread_fsm *self,
@@ -978,6 +984,8 @@ static int step_command_fsm_should_stop (struct thread_fsm *self,
 					 struct thread_info *thread);
 static enum async_reply_reason
   step_command_fsm_async_reply_reason (struct thread_fsm *self);
+void set_step_count (uint64_t count);
+uint64_t get_step_count ();
 
 /* step_command_fsm's vtable.  */
 
@@ -988,7 +996,26 @@ static struct thread_fsm_ops step_command_fsm_ops =
   step_command_fsm_should_stop,
   NULL,	/* return_value */
   step_command_fsm_async_reply_reason,
+  NULL,
+  set_step_count,
+  get_step_count,
 };
+
+
+void set_step_count (struct thread_fsm *self, uint64_t count)
+{
+  struct step_command_fsm *scfsm = (struct step_command_fsm *) self;
+  scfsm->roll_command_step_count = count;
+}
+
+
+uint64_t get_step_count (struct thread_fsm *self)
+{
+  uint64_t result = 0;
+  struct step_command_fsm *scfsm = (struct step_command_fsm *) self;
+  result = scfsm->roll_command_step_count;
+  return result;
+}
 
 /* Allocate a new step_command_fsm.  */
 
@@ -3226,6 +3253,74 @@ info_proc_cmd_all (const char *args, int from_tty)
   info_proc_cmd_1 (args, IP_ALL, from_tty);
 }
 
+static void
+roll_command (const char *args, int from_tty)
+{
+  uint64_t count;
+  int async_exec;
+
+  if (execution_direction == EXEC_REVERSE)
+  {
+    gdb::unique_xmalloc_ptr<char> stripped
+        = strip_bg_char (args, &async_exec);
+    args = stripped.get ();
+    count = args ? parse_and_eval_long (args) : 1;
+    roll_1 (0, 1, count, async_exec);
+  }
+  else
+    fprintf_filtered (gdb_stdout,
+             _("This command is for use in reverse mode only.\n\
+                Use the command reverse-roll\n"));
+
+}
+
+static void
+roll_1 (int skip_subroutines, int single_inst, uint64_t count, int async_exec)
+{
+  struct thread_info *thr;
+  struct step_command_fsm *step_sm;
+
+  ERROR_NO_INFERIOR;
+  ensure_not_tfind_mode ();
+  ensure_valid_thread ();
+  ensure_not_running ();
+
+  prepare_execution_command (current_top_target (), async_exec);
+  clear_proceed_status (1);
+  /* Setup the execution command state machine to handle all the COUNT
+     steps.  */
+  thr = inferior_thread ();
+  step_sm = new_step_command_fsm (command_interp ());
+  thr->thread_fsm = &step_sm->thread_fsm;
+
+
+  step_command_fsm_prepare (step_sm, skip_subroutines,
+          single_inst, 1, thr);
+  step_sm->thread_fsm.ops->set_step_count(&step_sm->thread_fsm, count);
+
+
+  /* Do only one step for now, before returning control to the event
+     loop.  Let the continuation figure out how many other steps we
+     need to do, and handle them one at the time, through
+     step_once.  */
+  if (!prepare_one_step (step_sm))
+  {
+    proceed ((CORE_ADDR) -1, GDB_SIGNAL_DEFAULT);
+  }
+  else
+    {
+      int proceeded;
+
+      /* Stepped into an inline frame.  Pretend that we've
+   stopped.  */
+      thread_fsm_clean_up (thr->thread_fsm, thr);
+      proceeded = normal_stop ();
+      if (!proceeded)
+  inferior_event_handler (INF_EXEC_COMPLETE, NULL);
+      all_uis_check_sync_execution_done ();
+    }
+}
+
 /* This help string is used for the run, start, and starti commands.
    It is defined as a macro to prevent duplication.  */
 
@@ -3546,4 +3641,7 @@ List absolute filename for executable of the process."),
   add_cmd ("all", class_info, info_proc_cmd_all, _("\
 List all available /proc info."),
 	   &info_proc_cmdlist);
+
+  add_com ("roll", class_run, roll_command, _("\
++Rolls back the state of the virtual machine by N steps backward."));
 }

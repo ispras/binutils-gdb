@@ -60,6 +60,12 @@ reverse_step (const char *args, int from_tty)
 }
 
 static void
+reverse_roll (const char *args, int from_tty)
+{
+  exec_reverse_once ("roll", args, from_tty);
+}
+
+static void
 reverse_stepi (const char *args, int from_tty)
 {
   exec_reverse_once ("stepi", args, from_tty);
@@ -381,4 +387,6 @@ Argument is the bookmark number of a bookmark saved earlier by using \n\
 the 'bookmark' command, or the special arguments:\n\
   start (beginning of recording)\n\
   end   (end of recording)\n"));
+  add_com ("reverse-roll", class_run, reverse_roll, _("\
+Execute backward until just before selected stack frame is called."));
 }

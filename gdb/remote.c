@@ -2109,6 +2109,7 @@ enum {
 
   /* Support TARGET_WAITKIND_NO_RESUMED.  */
   PACKET_no_resumed,
+  PACKET_bj,
 
   PACKET_MAX
 };
@@ -5169,6 +5170,8 @@ static const struct protocol_feature remote_protocol_features[] = {
     PACKET_bc },
   { "ReverseStep", PACKET_DISABLE, remote_supported_packet,
     PACKET_bs },
+  { "ReverseRoll", PACKET_DISABLE, remote_supported_packet,
+    PACKET_bj },
   { "TracepointSource", PACKET_DISABLE, remote_supported_packet,
     PACKET_TracepointSource },
   { "QAllow", PACKET_DISABLE, remote_supported_packet,
@@ -5310,6 +5313,7 @@ remote_target::remote_query_supported ()
       putpkt (q.c_str ());
 
       getpkt (&rs->buf, &rs->buf_size, 0);
+      printf("reply from qemu = %s", rs->buf);
 
       /* If an error occured, warn, but do not return - just reset the
 	 buffer to empty and go on to disable features.  */
@@ -5351,6 +5355,7 @@ remote_target::remote_query_supported ()
 	    }
 	}
 
+        printf("try to process feature %s\n",p);
       name_end = strchr (p, '=');
       if (name_end)
 	{
@@ -5388,6 +5393,7 @@ remote_target::remote_query_supported ()
 	if (strcmp (remote_protocol_features[i].name, p) == 0)
 	  {
 	    const struct protocol_feature *feature;
+        printf("activate feature name = %s\n",feature->name);
 
 	    seen[i] = 1;
 	    feature = &remote_protocol_features[i];
@@ -6138,6 +6144,9 @@ remote_target::remote_resume_with_hc (ptid_t ptid, int step,
 {
   struct remote_state *rs = get_remote_state ();
   struct thread_info *thread;
+  uint64_t bj_step_count;
+  struct thread_info *inf_thread;
+
   char *buf;
 
   rs->last_sent_signal = siggnal;
@@ -6165,8 +6174,36 @@ remote_target::remote_resume_with_hc (ptid_t ptid, int step,
 	error (_("Remote reverse-step not supported."));
       if (!step && packet_support (PACKET_bc) == PACKET_DISABLE)
 	error (_("Remote reverse-continue not supported."));
-
-      strcpy (buf, step ? "bs" : "bc");
+      if (packet_support (PACKET_bj) == PACKET_ENABLE)
+      {
+        printf("packet bj enabled \n");
+        if (step)
+        {
+          inf_thread = inferior_thread();
+          bj_step_count =
+          inf_thread->thread_fsm->ops->get_step_count(inf_thread->thread_fsm);
+          if (bj_step_count > 0)
+          {
+            printf("step_count  was read\n");
+            snprintf(buf, 10, "%s,%" PRIu64, "bj", bj_step_count);
+            printf("buf = %s\n",buf);
+          }
+          else
+          {
+            printf("step_count doesn't read\n");
+            strcpy (buf,"bs");
+          }
+          inf_thread->thread_fsm->ops->set_step_count(inf_thread->thread_fsm, 0);
+        }
+        else
+        {
+          strcpy (buf,"bc");
+        }
+      }
+      else
+      {
+        strcpy (buf, step ? "bs" : "bc");
+      }
     }
   else if (siggnal != GDB_SIGNAL_0)
     {
@@ -6178,6 +6215,7 @@ remote_target::remote_resume_with_hc (ptid_t ptid, int step,
   else
     strcpy (buf, step ? "s" : "c");
 
+    printf("buffer = %s\n",buf);
   putpkt (buf);
 }
 
@@ -14604,6 +14642,9 @@ Show the maximum size of the address (in bits) in a memory packet."), NULL,
 
   add_packet_config_cmd (&remote_protocol_packets[PACKET_bs],
 			 "bs", "reverse-step", 0);
+
+  add_packet_config_cmd (&remote_protocol_packets[PACKET_bj],
+			 "bj", "reverse-roll", 0);
 
   add_packet_config_cmd (&remote_protocol_packets[PACKET_qSupported],
 			 "qSupported", "supported-packets", 0);

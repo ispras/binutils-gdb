@@ -563,4 +563,6 @@ extern struct inferior *add_inferior_with_spaces (void);
 /* Print the current selected inferior.  */
 extern void print_selected_inferior (struct ui_out *uiout);
 
+void set_step_count (struct thread_fsm *self, uint64_t count);
+uint64_t get_step_count (struct thread_fsm *self);
 #endif /* !defined (INFERIOR_H) */

@@ -78,6 +78,9 @@ struct thread_fsm_ops
 
   /* Whether the stop should be notified to the user/frontend.  */
   int (*should_notify_stop) (struct thread_fsm *self);
+
+  void (*set_step_count) (struct thread_fsm *self, uint64_t);
+  uint64_t (*get_step_count) (struct thread_fsm *self);
 };
 /* Initialize FSM.  */
 extern void thread_fsm_ctor (struct thread_fsm *self,

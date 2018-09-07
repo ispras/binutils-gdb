@@ -20,6 +20,7 @@
 #define REMOTE_H
 
 #include "remote-notif.h"
+#include "thread-fsm.h"
 
 struct target_desc;
 struct remote_target;
