@@ -6180,7 +6180,7 @@ remote_target::remote_resume_with_hc (ptid_t ptid, int step,
           inf_thread->thread_fsm->ops->get_step_count(inf_thread->thread_fsm);
           if (bj_step_count > 0)
           {
-            snprintf(buf, 10, "%s,%" PRIu64, "bj", bj_step_count);
+            snprintf(buf, 30, "%s,%" PRIu64, "bj", bj_step_count);
           }
           else
           {
